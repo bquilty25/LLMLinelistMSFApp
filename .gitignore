@@ -1,0 +1,26 @@
+# Environment variables
+.env
+.env.*
+
+# R environment variables
+.Renviron
+.Rprofile
+
+# R project user-specific files
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+sample_story_board_for_billy.pdf
+singapore_measles_reports.r
+
+data/msf_data/
+
+*.tsv
+*.xml
+*.txt
+*.qs
+*.xlsx
+*.csv
+*.log

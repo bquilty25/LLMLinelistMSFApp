@@ -1,0 +1,14 @@
+{
+  "generated_at": "2026-04-30 13:44:57 CEST",
+  "provider": "azure",
+  "model": "gpt-5",
+  "case_id_prefix": "SYN",
+  "target_case_count": 12,
+  "ground_truth_path": "/Users/billyquilty/Documents/Work/LLMLinelistMSF/data/msf_data/raw/narrative_linelist_gt_mpi_inferred.xlsx",
+  "narrative_path": "/Users/billyquilty/Documents/Work/LLMLinelistMSF/data/msf_data/raw/Narratif_draft_18june_edit.docx",
+  "gazetteer_path": "/Users/billyquilty/Documents/Work/LLMLinelistMSF/data/msf_data/modified/synthetic_demo_gazetteer.json",
+  "validation": {
+    "warnings": [],
+    "errors": []
+  }
+}
