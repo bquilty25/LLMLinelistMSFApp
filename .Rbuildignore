@@ -1,0 +1,7 @@
+^\.DS_Store$
+^\.Rproj\.user$
+^\.vscode$
+^AGENTS\.md$
+^data$
+^LLMLineList\.Rproj$
+^scripts$

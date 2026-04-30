@@ -1,0 +1,120 @@
+---
+title: "Getting Started"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+LLMLineListMSFApp is an R package for extracting outbreak line lists from narrative reports with large language models. You can use it as an interactive Shiny app, but the underlying package API is designed to work directly from an R session as well.
+
+## Installation
+
+Install the package from the repository root:
+
+```r
+# install.packages("pak")
+# pak::local_install(".")
+```
+
+Or use base R installation tooling:
+
+```sh
+R CMD INSTALL .
+```
+
+Load the package in an R session:
+
+```{r}
+library(LLMLineListMSFApp)
+```
+
+## Bundled assets
+
+The package installs demo documents and the default system prompt under `inst/extdata`. Access them with helper functions rather than hard-coded paths.
+
+```{r}
+demo_path <- llmlinelist_demo_path()
+prompt_path <- llmlinelist_system_prompt_path()
+
+demo_path
+prompt_path
+```
+
+## Direct extraction workflow
+
+The core runtime path is document text -> prompt preparation -> provider call -> structured parsing.
+
+```{r, eval = FALSE}
+library(readr)
+
+document_text <- readr::read_file(llmlinelist_demo_path())
+
+result <- process_document(
+  document_content = document_text,
+  provider = "azure",
+  model = "gpt-5"
+)
+
+linelist <- result$linelist
+raw_response <- result$raw_response
+```
+
+If your source material is a DOCX report, convert it first and then call the same runtime entrypoint.
+
+```{r, eval = FALSE}
+document_text <- extract_docx_markdown("report.docx")
+
+result <- process_document(
+  document_content = document_text,
+  content_type = "markdown",
+  provider = "ollama",
+  model = "llama3.3:latest"
+)
+```
+
+You can optionally deduplicate the resulting line list after extraction.
+
+```{r, eval = FALSE}
+linelist <- consolidate_duplicates_llm(result$linelist)
+```
+
+## Shiny app
+
+If you want the interactive interface, launch the packaged app with:
+
+```{r, eval = FALSE}
+run_llm_linelist_app()
+```
+
+## Comparison and metrics utilities
+
+The package also exposes validation helpers for comparing extracted line lists with ground truth data.
+
+```{r, eval = FALSE}
+comparison <- compare_linelists(llm_data = extracted_linelist, ground_truth = reference_linelist)
+
+case_metrics <- compute_case_metrics(llm_normalized, gt_normalized)
+variable_metrics <- compute_variable_metrics(llm_normalized, gt_normalized)
+```
+
+## Provider configuration
+
+Runtime provider support depends on the relevant local runtime or environment variables.
+
+- Azure OpenAI: set `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, and optionally `AZURE_OPENAI_API_VERSION`.
+- Claude: set `CLAUDE_API_KEY`.
+- OpenAI: set `OPENAI_API_KEY`.
+- Gemini: set `GEMINI_API_KEY`.
+- Ollama: ensure the local server is running and the selected model is installed.
+- MLX: ensure the configured Python environment contains the required MLX dependencies.
+
+The API is the same whichever provider you choose; only the provider-specific runtime configuration changes.

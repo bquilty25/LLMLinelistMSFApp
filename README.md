@@ -1,94 +1,147 @@
 # LLMLineListMSFApp
 
-LLMLineListMSFApp is a standalone Shiny application for turning outbreak narratives into structured line lists with large language models. This repository is the app-focused extraction from a larger research and validation codebase; the benchmarking, manuscript, and other project-specific components are intentionally out of scope here.
+LLMLineListMSFApp is an installable R package for extracting outbreak line lists from free-text narratives with large language models. It packages the interactive Shiny workflow, provider-facing runtime helpers, prompt utilities, bundled demo assets, and the comparison and metrics functions used to evaluate extraction quality.
 
-The app is designed for interactive use. You can paste a narrative directly into the interface or upload a document, choose a provider and model, select how the system prompt should be handled, and review the extracted line list, metadata, and relationship network in the browser.
+## What it includes
 
-## What the app does
+- A packaged Shiny app launched with `LLMLineListMSFApp::run_llm_linelist_app()`.
+- Extraction helpers for document ingestion, prompt construction, provider calls, structured parsing, and optional deduplication.
+- Evaluation helpers for line list comparison and validation metrics.
+- Bundled demo and prompt assets exposed through helper functions rather than repo-relative paths.
 
-- Accepts pasted text or uploaded `.txt`, `.md`, `.docx`, and `.pdf` outbreak narratives.
-- Uses the shared extraction pipeline from the original project rather than a separate demo-only code path.
-- Supports multiple providers from the app UI, including Azure OpenAI, Claude, MLX, and Ollama.
-- Lets you use the built-in validated prompt, auto-generate a prompt from the current document, or upload your own prompt file.
-- Includes optional post-extraction deduplication.
-- Ships with bundled demo narratives and line lists in `data/demos`.
+## Install
 
-By default, the app opens with the 12-case demo narrative preloaded.
+Quick local install from the repository root:
 
-## Repository layout
-
-```text
-.
-├── data/
-│   ├── demos/                  # bundled demo narratives, line lists, and metadata
-│   └── system_prompts/         # built-in prompt files
-├── scripts/
-│   ├── core/                   # shared extraction and utility functions
-│   ├── shiny_apps/
-│   │   ├── app.R               # current Shiny app entry point
-│   │   └── shiny_app.R         # legacy app kept for reference
-│   └── mlx_generate.py         # local MLX helper script
-├── outputs/                    # generated demo artefacts and app outputs
-├── LLMLineList.Rproj
-└── README.md
+```sh
+R CMD INSTALL .
 ```
 
-## Run locally
+If you want installed vignette access via `vignette("getting-started", package = "LLMLineListMSFApp")`, build and install the source tarball instead:
 
-Start the app from the repository root:
+```sh
+R CMD build .
+R CMD INSTALL LLMLineListMSFApp_0.0.0.9000.tar.gz
+```
+
+For development workflows, load the package without installing it:
+
+```r
+pkgload::load_all(".")
+```
+
+## Run the app
+
+Installed package entrypoint:
+
+```r
+LLMLineListMSFApp::run_llm_linelist_app()
+```
+
+Repository compatibility launcher:
 
 ```r
 shiny::runApp("scripts/shiny_apps")
 ```
 
-If you prefer to launch it from an R session that already uses `here`, this also works:
+The compatibility launcher delegates to the packaged app. It exists so older repo-local workflows do not keep depending on sourced scripts under `scripts/core`.
+
+## Use from R
+
+The package does not require the Shiny app. You can run the extraction workflow directly from an R session.
+
+Example using bundled demo text:
 
 ```r
-shiny::runApp(here::here("scripts", "shiny_apps"))
+library(LLMLineListMSFApp)
+library(readr)
+
+document_text <- read_file(llmlinelist_demo_path())
+
+result <- process_document(
+	document_content = document_text,
+	provider = "azure",
+	model = "gpt-5"
+)
+
+linelist <- result$linelist
 ```
 
-## R packages
+Example starting from a `.docx` file:
 
-The app expects the following R packages to be available:
+```r
+library(LLMLineListMSFApp)
 
-- `shiny`
-- `shinyjs`
-- `shinycssloaders`
-- `shinythemes`
-- `DT`
-- `dplyr`
-- `tidyr`
-- `purrr`
-- `stringr`
-- `readr`
-- `glue`
-- `tibble`
-- `visNetwork`
-- `here`
-- `jsonlite`
+document_text <- extract_docx_markdown("report.docx")
+
+result <- process_document(
+	document_content = document_text,
+	content_type = "markdown",
+	provider = "ollama",
+	model = "llama3.3:latest"
+)
+
+linelist <- consolidate_duplicates_llm(result$linelist)
+```
+
+For a fuller walkthrough, see `vignette("getting-started", package = "LLMLineListMSFApp")` after installing the built package tarball.
+
+## Core package surface
+
+Extraction workflow:
+
+- `extract_docx_markdown()`
+- `create_system_prompt()`
+- `llm_call_tidy()`
+- `extract_structured_data()`
+- `process_document()`
+- `generate_extraction_prompt()`
+- `consolidate_duplicates_llm()`
+- `call_mlx_llm()`
+
+Comparison and metrics:
+
+- `compare_linelists()`
+- `compute_case_metrics()`
+- `compute_variable_metrics()`
+- `compute_per_case_list_metrics()`
+- `create_metrics_row()`
+- `aggregate_replicate_metrics()`
+
+Bundled assets:
+
+- `llmlinelist_demo_path()`
+- `llmlinelist_system_prompt_path()`
 
 ## Provider setup
 
-The app can call different back ends depending on the provider you select in the UI. The required credentials or local runtime need to be available before processing narratives.
+The packaged app currently exposes Azure OpenAI, Claude, MLX, and Ollama. The lower-level runtime helper `llm_call_tidy()` also supports OpenAI and Gemini.
 
-- `Azure OpenAI`: configure the relevant Azure credentials in your environment.
-- `Claude`: configure the relevant Anthropic credentials in your environment.
-- `MLX`: use a macOS environment with the required local MLX setup.
-- `Ollama`: make sure Ollama is installed and the chosen model is available locally.
+- Azure OpenAI: set `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY`. Optionally set `AZURE_OPENAI_API_VERSION`.
+- Claude: set `CLAUDE_API_KEY`.
+- OpenAI: set `OPENAI_API_KEY` if using the runtime helper directly.
+- Gemini: set `GEMINI_API_KEY` if using the runtime helper directly.
+- MLX: ensure the local Python environment and MLX dependencies are available. The packaged helper script lives under `inst/scripts/mlx_generate.py`.
+- Ollama: ensure the local Ollama server is running and the selected model is available.
 
-## Demo data
+## Repository layout
 
-Bundled demo files live in `data/demos`.
+```text
+.
+├── R/                         # package functions
+├── inst/
+│   ├── apps/shiny_app/        # packaged Shiny app
+│   ├── extdata/               # bundled demo and prompt assets
+│   └── scripts/               # packaged MLX helper
+├── man/                       # generated documentation
+├── tests/testthat/            # package tests
+└── scripts/shiny_apps/        # compatibility launchers for older repo workflows
+```
 
-- `synthetic_msf_demo_12_cases_v4_*` is the current 12-case demo set and is the app default.
-- `synthetic_msf_demo_84_cases_v1_*` is the larger retained demo set.
+## Validation
 
-These files are included to make it easy to launch the app and test the full extraction flow without needing to source your own narrative first.
-
-## Scope of this repo
-
-This repository is intentionally narrower than the original parent project. It is for the interactive app and the minimum supporting extraction code needed to run it. If you are looking for the historical validation pipeline, benchmarking artefacts, or manuscript workflow, those belong in the older research repo rather than here.
+The package is validated through `testthat`, `R CMD build`, and `R CMD check --no-manual`.
 
 ## License
 
-MIT. See `LICENSE`.
+MIT. See `LICENSE` and `LICENSE.md`.

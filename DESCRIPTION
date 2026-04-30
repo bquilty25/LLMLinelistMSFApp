@@ -1,0 +1,43 @@
+Package: LLMLineListMSFApp
+Title: Extract Outbreak Line Lists With Large Language Models
+Version: 0.0.0.9000
+Authors@R:
+    person("Billy", "Quilty", , "bquilty25@gmail.com", role = c("aut", "cre"))
+Description: Extracts structured outbreak line lists from narrative reports
+    with large language models. The package provides reusable document
+    ingestion, prompt generation, provider runtime, structured parsing,
+    comparison, and metrics utilities, together with a packaged Shiny app
+    launcher and bundled demo assets.
+Depends:
+    R (>= 4.1.0)
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+VignetteBuilder: knitr
+Imports:
+    dplyr,
+    glue,
+    httr2,
+    jsonlite,
+    purrr,
+    readr,
+    rlang,
+    stringr
+    ,
+    tibble
+Config/testthat/edition: 3
+Suggests:
+    DT,
+    knitr,
+    officer,
+    pdftools,
+    rmarkdown,
+    shiny,
+    shinycssloaders,
+    shinyjs,
+    shinythemes,
+    tidyr,
+    testthat (>= 3.0.0)
+    ,
+    visNetwork
