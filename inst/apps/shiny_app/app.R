@@ -538,10 +538,10 @@ ui <- fluidPage(
         div(
           class = "section-card",
           style = "margin-bottom: 0; padding: 14px 18px;",
-          strong("What changed"),
+          strong("\u26a0\ufe0f Important disclaimer"),
           p(
             class = "help-copy",
-            "The app now uses the same structured extraction, prompt generation and parsing path as the validation pipeline, but keeps the interface general so it can work beyond the MSF benchmark document."
+            "LLM extraction is not infallible. Always review the output carefully before use. Case counts, dates, identifiers, and epidemiological links should be verified against the source document. This tool is intended to assist — not replace — human review."
           )
         )
       )
