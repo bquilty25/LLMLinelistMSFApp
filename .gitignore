@@ -12,11 +12,6 @@
 .RData
 .Ruserdata
 
-sample_story_board_for_billy.pdf
-singapore_measles_reports.r
-
-data/msf_data/
-
 *.tsv
 *.xml
 *.txt
@@ -24,3 +19,6 @@ data/msf_data/
 *.xlsx
 *.csv
 *.log
+
+# Always track bundled package assets regardless of extension rules above
+!inst/extdata/**
