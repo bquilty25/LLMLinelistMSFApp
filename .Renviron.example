@@ -1,0 +1,36 @@
+# ============================================================
+# LLMLineListMSFApp — environment variables template
+#
+# Copy this file to .Renviron, fill in your credentials, and
+# restart R. Only the variables for the provider(s) you intend
+# to use are required.
+#
+#   cp .Renviron.example .Renviron
+#
+# .Renviron is gitignored — never commit real credentials.
+# ============================================================
+
+# ------ Azure OpenAI (required for azure provider) ----------
+AZURE_OPENAI_ENDPOINT=https://<your-resource-name>.openai.azure.com/
+AZURE_OPENAI_API_KEY=<your-azure-api-key>
+# Optional — defaults to 2025-01-01-preview if unset
+# AZURE_OPENAI_API_VERSION=2025-01-01-preview
+
+# ------ Anthropic Claude (required for claude provider) -----
+CLAUDE_API_KEY=<your-anthropic-api-key>
+
+# ------ OpenAI (required for openai provider) ---------------
+OPENAI_API_KEY=<your-openai-api-key>
+
+# ------ Google Gemini (required for gemini provider) --------
+GEMINI_API_KEY=<your-gemini-api-key>
+
+# ------ MLX (local Apple Silicon inference) -----------------
+# Path to the Python binary in your MLX virtual environment.
+# Defaults to ~/mlx-env/bin/python3 if unset.
+# LLMLINELIST_MLX_PYTHON_BIN=~/mlx-env/bin/python3
+
+# ------ Ollama (local server) --------------------------------
+# No credentials needed. Ensure `ollama serve` is running and
+# the model you want is pulled, e.g.:
+#   ollama pull llama3.3:latest

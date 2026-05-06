@@ -30,21 +30,41 @@ For development workflows, load the package without installing it:
 pkgload::load_all(".")
 ```
 
-## Run the app
+## Provider setup
 
-Installed package entrypoint:
+The app and runtime helpers read API credentials from environment variables. The easiest way to set these is with a project-level `.Renviron` file, which R loads automatically on startup.
+
+1. Copy the example template and open it in a text editor:
+
+```sh
+cp .Renviron.example .Renviron
+```
+
+2. Fill in the credentials for the provider(s) you want to use (you only need the variables for the providers you are actually using):
+
+| Provider | Required variables |
+|---|---|
+| Azure OpenAI | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY` |
+| Claude | `CLAUDE_API_KEY` |
+| OpenAI | `OPENAI_API_KEY` |
+| Gemini | `GEMINI_API_KEY` |
+| MLX / Ollama (local) | See [Local model setup](#local-model-setup) below |
+
+3. Restart R so the new variables are picked up:
+
+```r
+# In RStudio: Session > Restart R
+# Or from the terminal:
+# Rscript -e "Sys.getenv('AZURE_OPENAI_ENDPOINT')"  # verify it loaded
+```
+
+> `.Renviron` is listed in `.gitignore` — never commit real credentials.
+
+## Run the app
 
 ```r
 LLMLineListMSFApp::run_llm_linelist_app()
 ```
-
-Repository compatibility launcher:
-
-```r
-shiny::runApp("scripts/shiny_apps")
-```
-
-The compatibility launcher delegates to the packaged app. It exists so older repo-local workflows do not keep depending on sourced scripts under `scripts/core`.
 
 ## Use from R
 
@@ -113,17 +133,6 @@ Bundled assets:
 - `llmlinelist_demo_path()`
 - `llmlinelist_system_prompt_path()`
 
-## Provider setup
-
-The packaged app currently exposes Azure OpenAI, Claude, MLX, and Ollama. The lower-level runtime helper `llm_call_tidy()` also supports OpenAI and Gemini.
-
-- Azure OpenAI: set `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY`. Optionally set `AZURE_OPENAI_API_VERSION`.
-- Claude: set `CLAUDE_API_KEY`.
-- OpenAI: set `OPENAI_API_KEY` if using the runtime helper directly.
-- Gemini: set `GEMINI_API_KEY` if using the runtime helper directly.
-- MLX: ensure the local Python environment and MLX dependencies are available. The packaged helper script lives under `inst/scripts/mlx_generate.py`.
-- Ollama: ensure the local Ollama server is running and the selected model is available.
-
 ## Repository layout
 
 ```text
@@ -135,12 +144,37 @@ The packaged app currently exposes Azure OpenAI, Claude, MLX, and Ollama. The lo
 │   └── scripts/               # packaged MLX helper
 ├── man/                       # generated documentation
 ├── tests/testthat/            # package tests
-└── scripts/shiny_apps/        # compatibility launchers for older repo workflows
+├── vignettes/                 # getting-started vignette
+└── .Renviron.example          # credentials template
 ```
 
 ## Validation
 
 The package is validated through `testthat`, `R CMD build`, and `R CMD check --no-manual`.
+
+## Local model setup
+
+### MLX (Apple Silicon)
+
+MLX runs models locally on Apple Silicon. It requires a Python environment with `mlx-lm` installed:
+
+```sh
+python3 -m venv ~/mlx-env
+~/mlx-env/bin/pip install mlx-lm
+```
+
+Optionally set `LLMLINELIST_MLX_PYTHON_BIN` in your `.Renviron` if your environment is elsewhere (defaults to `~/mlx-env/bin/python3`).
+
+### Ollama
+
+Install Ollama from [ollama.com](https://ollama.com), start the server, and pull a model before use:
+
+```sh
+ollama serve &
+ollama pull qwen3.6:latest
+```
+
+No credentials are needed — the app connects to `localhost:11434` automatically.
 
 ## License
 
