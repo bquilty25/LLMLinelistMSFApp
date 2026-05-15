@@ -1,0 +1,85 @@
+case_id,name,sex,age,age_unit,province,health_zone,health_area,residence_village,profession,onset_date,outcome_date,outcome,classification,potential_infector,infection_route,most_probable_infector,contacts,secondary_cases
+SYN001,musa katembo,male,42,years,nord-kivu,butembo,katsya,mususa,farmer,03/03/2026,17/03/2026,deceased,confirmed,,community market exposure,,,"SYN002, SYN003, SYN004"
+SYN002,kalenda masika,female,36,years,nord-kivu,butembo,katsya,katsya,market vendor,08/03/2026,25/03/2026,recovered,confirmed,SYN001,household contact,SYN001,"SYN001, SYN005",SYN005
+SYN003,patrick kavira,male,15,years,nord-kivu,butembo,katsya,bubange,student,10/03/2026,26/03/2026,recovered,probable,SYN001,school contact,SYN001,SYN001,
+SYN004,salima mwamba,female,60,years,nord-kivu,butembo,katsya,misavu,pastor,09/03/2026,22/03/2026,deceased,confirmed,SYN001,church gathering,SYN001,"SYN001, SYN006, SYN007","SYN006, SYN007"
+SYN005,jean maronga,male,7,years,nord-kivu,butembo,katsya,musavu,,17/03/2026,31/03/2026,recovered,confirmed,SYN002,household contact,SYN002,SYN002,
+SYN006,benedicte kavusa,female,29,years,nord-kivu,butembo,katsya,vutetse,teacher,16/03/2026,01/04/2026,recovered,probable,SYN004,church gathering,SYN004,SYN004,
+SYN007,mugisha malambo,male,54,years,nord-kivu,butembo,katsya,ngule i,security guard,18/03/2026,28/03/2026,deceased,confirmed,SYN004,church gathering,SYN004,"SYN004, SYN008",SYN008
+SYN008,anna banyene,female,31,years,nord-kivu,butembo,kyangike,kambali,nurse,24/03/2026,08/04/2026,recovered,confirmed,SYN007,healthcare worker exposure,SYN007,"SYN007, SYN009",SYN009
+SYN009,david muhindo,male,3,years,nord-kivu,butembo,kyangike,kalemire,,30/03/2026,12/04/2026,recovered,probable,SYN008,household contact,SYN008,SYN008,
+SYN010,celine kiviri,female,48,years,nord-kivu,butembo,kyangike,vuyo,traditional healer,20/03/2026,02/04/2026,deceased,confirmed,,traditional healer visit,,,"SYN011, SYN012"
+SYN011,augustin kyavinywa,male,26,years,nord-kivu,butembo,kyangike,salongo,taxi driver,27/03/2026,10/04/2026,recovered,suspected,SYN010,transport during burial,SYN010,SYN010,
+SYN012,viviane kavwesa,female,52,years,nord-kivu,butembo,kyangike,ngere,tailor,29/03/2026,14/04/2026,recovered,probable,SYN010,funeral exposure,SYN010,"SYN010, SYN013",SYN013
+SYN013,jeanne ruseke,female,23,years,nord-kivu,butembo,kyangike,kiviriviri,student,06/04/2026,20/04/2026,recovered,suspected,SYN012,household contact,SYN012,SYN012,
+SYN014,kosia kavito,female,67,years,nord-kivu,butembo,malende,visiki,farmer,15/03/2026,30/03/2026,deceased,confirmed,,community market exposure,,,"SYN015, SYN016"
+SYN015,gaston muhima,male,34,years,nord-kivu,butembo,malende,komba,mechanic,22/03/2026,06/04/2026,recovered,confirmed,SYN014,caregiving at home,SYN014,"SYN014, SYN017",SYN017
+SYN016,aline kasiviko,female,9,years,nord-kivu,butembo,malende,matoto,,24/03/2026,09/04/2026,recovered,probable,SYN014,household contact,SYN014,SYN014,
+SYN017,pascal kavota,male,1,years,nord-kivu,butembo,malende,kitowa,,01/04/2026,13/04/2026,deceased,confirmed,SYN015,household contact,SYN015,SYN015,
+SYN018,leonie byakika,female,44,years,nord-kivu,butembo,malende,mavina,trader,26/03/2026,,under treatment,suspected,"SYN014, SYN015",possible community exposure,,"SYN014, SYN015",
+SYN019,samuel vuyanga,male,39,years,nord-kivu,butembo,ngengere,ngengere,doctor,28/03/2026,12/04/2026,recovered,confirmed,SYN014,nosocomial transmission,SYN014,"SYN014, SYN020",SYN020
+SYN020,noella katembo,female,22,years,nord-kivu,butembo,ngengere,kikyo,student,06/04/2026,20/04/2026,recovered,probable,SYN019,healthcare worker exposure,SYN019,SYN019,
+SYN021,grace kavusa,female,58,years,nord-kivu,butembo,mama musayi,kambali,teacher,01/04/2026,17/04/2026,deceased,confirmed,,community market exposure,,,"SYN022, SYN023"
+SYN022,didier kavuta,male,30,years,nord-kivu,butembo,mama musayi,kabasha,taxi driver,08/04/2026,23/04/2026,recovered,suspected,SYN021,transport during burial,SYN021,SYN021,
+SYN023,edith vuhima,female,11,years,nord-kivu,butembo,mama musayi,vulamba,,10/04/2026,25/04/2026,recovered,probable,SYN021,household contact,SYN021,SYN021,
+SYN024,robert kivambo,male,47,years,nord-kivu,butembo,matanda,av masisi,police officer,05/04/2026,,under treatment,confirmed,"SYN021, SYN014",possible community exposure,,"SYN021, SYN014",
+SYN025,yvette muntu,female,24,years,nord-kivu,butembo,makasi,lumumba,nurse,12/04/2026,28/04/2026,recovered,confirmed,SYN021,healthcare worker exposure,SYN021,"SYN021, SYN026",SYN026
+SYN026,martin kavito,male,2,years,nord-kivu,butembo,makasi,des ecoles,,20/04/2026,03/05/2026,recovered,probable,SYN025,household contact,SYN025,SYN025,
+SYN027,felix vuyanzi,male,62,years,nord-kivu,butembo,mondo,bwinongo,pastor,09/04/2026,21/04/2026,deceased,confirmed,,church gathering,,,SYN028
+SYN028,cecile kavango,female,40,years,nord-kivu,butembo,mondo,vuhesi b,teacher,15/04/2026,30/04/2026,recovered,suspected,SYN027,church gathering,SYN027,SYN027,
+SYN029,modeste kavere,male,33,years,nord-kivu,butembo,vulamba,vusesa,mechanic,13/04/2026,29/04/2026,recovered,suspected,,workplace exposure,,,
+SYN030,judith kavwiri,female,52,years,nord-kivu,butembo,vulindi,vulindi,farmer,11/04/2026,26/04/2026,recovered,probable,,possible community exposure,,,
+SYN031,emmanuel mugisha,male,45,years,nord-kivu,katwa,makerere,makerere,trader,02/04/2026,16/04/2026,deceased,confirmed,,community market exposure,,,"SYN032, SYN033, SYN034"
+SYN032,hannah kavwali,female,38,years,nord-kivu,katwa,makerere,mavono,market vendor,08/04/2026,23/04/2026,recovered,confirmed,SYN031,household contact,SYN031,"SYN031, SYN035",SYN035
+SYN033,jeremie vuhira,male,12,years,nord-kivu,katwa,makerere,vitava,,10/04/2026,27/04/2026,recovered,probable,SYN031,household contact,SYN031,SYN031,
+SYN034,agnes kavayi,female,58,years,nord-kivu,katwa,makerere,kavale,farmer,09/04/2026,22/04/2026,deceased,confirmed,SYN031,caregiving at home,SYN031,"SYN031, SYN036",SYN036
+SYN035,mado kavwaso,female,2,years,nord-kivu,katwa,makerere,mihake,,18/04/2026,02/05/2026,recovered,probable,SYN032,household contact,SYN032,SYN032,
+SYN036,rodrigue kavindi,male,28,years,nord-kivu,katwa,makerere,wayene,taxi driver,17/04/2026,29/04/2026,recovered,suspected,SYN034,transport during burial,SYN034,SYN034,
+SYN037,simeon kavwana,male,50,years,nord-kivu,katwa,masiki,masiki,pastor,12/04/2026,26/04/2026,deceased,confirmed,,church gathering,,,"SYN038, SYN039"
+SYN038,florence kavere,female,41,years,nord-kivu,katwa,masiki,matanda,teacher,18/04/2026,03/05/2026,recovered,probable,SYN037,church gathering,SYN037,"SYN037, SYN040",SYN040
+SYN039,oscar kavuta,male,63,years,nord-kivu,katwa,masiki,kisesi,farmer,19/04/2026,01/05/2026,deceased,confirmed,SYN037,funeral exposure,SYN037,SYN037,
+SYN040,leah kavwanga,female,19,years,nord-kivu,katwa,masiki,vungi,student,25/04/2026,09/05/2026,recovered,suspected,SYN038,school contact,SYN038,SYN038,
+SYN041,prudence kavali,female,33,years,nord-kivu,katwa,rughenda,rughenda,nurse,14/04/2026,30/04/2026,recovered,confirmed,"SYN031, SYN037",healthcare worker exposure,SYN031,"SYN031, SYN037, SYN042",SYN042
+SYN042,isaac kavwibo,male,5,years,nord-kivu,katwa,rughenda,kahondo,,22/04/2026,06/05/2026,recovered,probable,SYN041,household contact,SYN041,SYN041,
+SYN043,mireille kaviri,female,27,years,nord-kivu,katwa,vungi,vungi,market vendor,13/04/2026,27/04/2026,recovered,suspected,,possible community exposure,,,
+SYN044,edouard kavusha,male,51,years,nord-kivu,katwa,vuhika,vuhika,doctor,16/04/2026,02/05/2026,recovered,confirmed,SYN031,nosocomial transmission,SYN031,"SYN031, SYN045",SYN045
+SYN045,yolande kavungu,female,32,years,nord-kivu,katwa,vuhika,ngambo,teacher,23/04/2026,08/05/2026,recovered,probable,SYN044,healthcare worker exposure,SYN044,SYN044,
+SYN046,bora kavimba,female,21,years,nord-kivu,katwa,tulizeni,vutalirya,student,17/04/2026,01/05/2026,recovered,suspected,"SYN031, SYN043",possible community exposure,,"SYN031, SYN043",
+SYN047,leonard kavunga,male,57,years,nord-kivu,katwa,vighole,vighole,farmer,19/04/2026,04/05/2026,deceased,confirmed,,community market exposure,,,SYN048
+SYN048,christine kavwira,female,49,years,nord-kivu,katwa,vighole,kahembe,market vendor,26/04/2026,10/05/2026,recovered,probable,SYN047,household contact,SYN047,SYN047,
+SYN049,patrick kavisha,male,28,years,nord-kivu,katwa,wanamahika,vungi,teacher,21/04/2026,06/05/2026,recovered,suspected,,school contact,,,
+SYN050,nadine kavacha,female,35,years,nord-kivu,katwa,kivika,kimemi,nurse,18/04/2026,03/05/2026,recovered,confirmed,SYN031,healthcare worker exposure,SYN031,"SYN031, SYN051",SYN051
+SYN051,francois kavona,male,4,years,nord-kivu,katwa,kivika,kalemire,,25/04/2026,08/05/2026,recovered,probable,SYN050,household contact,SYN050,SYN050,
+SYN052,raphael kavwiri,male,43,years,nord-kivu,katwa,muchanga,mukondo,trader,20/04/2026,05/05/2026,recovered,suspected,"SYN031, SYN043",possible community exposure,,"SYN031, SYN043",
+SYN053,dina kavwanga,female,55,years,nord-kivu,katwa,mukuna,mukuna,farmer,22/04/2026,07/05/2026,deceased,confirmed,,community market exposure,,,SYN054
+SYN054,jules kavwibo,male,27,years,nord-kivu,katwa,mukuna,mulemya,taxi driver,28/04/2026,12/05/2026,recovered,probable,SYN053,funeral exposure,SYN053,SYN053,
+SYN055,justine kavutu,female,46,years,nord-kivu,katwa,muyisa,mutsanga,teacher,23/04/2026,,under treatment,suspected,SYN041,healthcare worker exposure,,SYN041,
+SYN056,ange kavungu,female,32,years,nord-kivu,katwa,kambuli,rughenda,nurse,24/04/2026,09/05/2026,recovered,confirmed,SYN041,healthcare worker exposure,SYN041,"SYN041, SYN057",SYN057
+SYN057,pierre kavere,male,1,years,nord-kivu,katwa,kambuli,isango,,01/05/2026,14/05/2026,recovered,probable,SYN056,household contact,SYN056,SYN056,
+SYN058,grace bahati,female,61,years,nord-kivu,katwa,masuli,masuli,farmer,26/04/2026,11/05/2026,deceased,confirmed,,community market exposure,,,"SYN059, SYN060"
+SYN059,jeanette kavwila,female,29,years,nord-kivu,katwa,masuli,malihya,market vendor,02/05/2026,18/05/2026,recovered,probable,SYN058,caregiving at home,SYN058,SYN058,
+SYN060,joseph kavundi,male,8,years,nord-kivu,katwa,masuli,bwinyole,,03/05/2026,16/05/2026,recovered,suspected,SYN058,household contact,SYN058,SYN058,
+SYN061,michael kavumu,male,37,years,nord-kivu,butembo,vutsundo,mutsunga,teacher,27/04/2026,12/05/2026,recovered,suspected,SYN019,possible nosocomial exposure,,SYN019,
+SYN062,beatrice kavweka,female,46,years,nord-kivu,butembo,vutike,majengo,market vendor,28/04/2026,14/05/2026,recovered,probable,,community market exposure,,,SYN063
+SYN063,yannick kavwiri,male,20,years,nord-kivu,butembo,vutike,vutike,student,05/05/2026,19/05/2026,recovered,suspected,SYN062,household contact,SYN062,SYN062,
+SYN064,irene kavwanga,female,53,years,nord-kivu,butembo,vuvatsi,vuvatsi,pastor,30/04/2026,13/05/2026,deceased,confirmed,,church gathering,,,"SYN065, SYN066"
+SYN065,hugo kavwana,male,31,years,nord-kivu,butembo,vuvatsi,kibwa,mechanic,06/05/2026,22/05/2026,recovered,probable,SYN064,church gathering,SYN064,SYN064,
+SYN066,clarisse kavika,female,26,years,nord-kivu,butembo,vuvatsi,nyamisule,teacher,07/05/2026,21/05/2026,recovered,suspected,SYN064,church gathering,SYN064,SYN064,
+SYN067,nathan kavwiri,male,48,years,nord-kivu,butembo,munzambaye,lumumba,police officer,01/05/2026,15/05/2026,recovered,suspected,,workplace exposure,,,
+SYN068,rosine kavugha,female,59,years,nord-kivu,katwa,masiki,bulema a,farmer,03/05/2026,18/05/2026,deceased,confirmed,SYN037,funeral exposure,SYN037,SYN037,SYN069
+SYN069,gideon kavwanga,male,27,years,nord-kivu,katwa,masiki,vitsay,taxi driver,10/05/2026,24/05/2026,recovered,probable,SYN068,transport during burial,SYN068,SYN068,
+SYN070,abigail kavundi,female,42,years,nord-kivu,katwa,rughenda,ngingi,market vendor,04/05/2026,20/05/2026,recovered,suspected,"SYN041, SYN047",possible community exposure,,"SYN041, SYN047",
+SYN071,charles kavweso,male,35,years,nord-kivu,katwa,kivika,ndwiro,mechanic,06/05/2026,21/05/2026,recovered,confirmed,,workplace exposure,,,SYN072
+SYN072,anne kavuna,female,33,years,nord-kivu,katwa,kivika,mutiri,tailor,12/05/2026,27/05/2026,recovered,probable,SYN071,household contact,SYN071,SYN071,
+SYN073,pascaline kavwera,female,18,years,nord-kivu,katwa,kambuli,vihuli,student,07/05/2026,21/05/2026,recovered,suspected,"SYN032, SYN041",school contact,,"SYN032, SYN041",
+SYN074,donat kavwila,male,64,years,nord-kivu,katwa,wanamahika,makoka,farmer,08/05/2026,23/05/2026,deceased,confirmed,,community market exposure,,,SYN075
+SYN075,mireille kavwibo,female,34,years,nord-kivu,katwa,wanamahika,vungi,market vendor,15/05/2026,30/05/2026,recovered,probable,SYN074,caregiving at home,SYN074,SYN074,
+SYN076,benita kavusa,female,25,years,nord-kivu,butembo,vulindi,vulinda,nurse,09/05/2026,24/05/2026,recovered,confirmed,SYN030,healthcare worker exposure,SYN030,"SYN030, SYN077",SYN077
+SYN077,theo kavwaro,male,27,years,nord-kivu,butembo,vulindi,marundu,mechanic,15/05/2026,31/05/2026,recovered,probable,SYN076,household contact,SYN076,SYN076,
+SYN078,aline kavwiri,female,22,years,nord-kivu,butembo,vutetse,kalimbute,student,11/05/2026,26/05/2026,recovered,suspected,"SYN062, SYN064",possible community exposure,,"SYN062, SYN064",
+SYN079,silas kavwaro,male,52,years,nord-kivu,butembo,vulamba,vuliki a,taxi driver,12/05/2026,27/05/2026,recovered,suspected,,transport during burial,,,
+SYN080,marie kavwesa,female,40,years,nord-kivu,butembo,mama musayi,kavitero,traditional healer,13/05/2026,29/05/2026,deceased,confirmed,,traditional healer visit,,,"SYN081, SYN082"
+SYN081,jacques kavwaro,male,35,years,nord-kivu,butembo,mama musayi,matadi,farmer,19/05/2026,03/06/2026,recovered,probable,SYN080,funeral exposure,SYN080,SYN080,
+SYN082,clementine kavwiri,female,16,years,nord-kivu,butembo,mama musayi,lumumba,student,20/05/2026,04/06/2026,recovered,suspected,SYN080,school contact,SYN080,SYN080,
+SYN083,victor kavwasa,male,46,years,nord-kivu,butembo,mondo,vukula a,police officer,16/05/2026,,under treatment,suspected,"SYN027, SYN031",possible community exposure,,"SYN027, SYN031",
+SYN084,sarah kavwaro,female,28,years,nord-kivu,katwa,tulizeni,vulumbi,market vendor,18/05/2026,02/06/2026,recovered,probable,"SYN074, SYN070",possible community exposure,,"SYN074, SYN070",

@@ -4,7 +4,7 @@
 \alias{llmlinelist_demo_path}
 \title{Get Installed Demo File Path}
 \usage{
-llmlinelist_demo_path(name = "synthetic_msf_demo_12_cases_v4_narrative.txt")
+llmlinelist_demo_path(name = "synthetic_msf_demo_84_cases_butembo_villages_narrative.md")
 }
 \arguments{
 \item{name}{File name under \code{inst/extdata/demos}.}

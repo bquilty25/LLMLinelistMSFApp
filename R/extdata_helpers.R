@@ -6,7 +6,7 @@
 #'
 #' @return An absolute file path.
 #' @export
-llmlinelist_demo_path <- function(name = "synthetic_msf_demo_12_cases_v4_narrative.txt") {
+llmlinelist_demo_path <- function(name = "synthetic_msf_demo_84_cases_butembo_villages_narrative.md") {
     path <- system.file("extdata", "demos", name, package = "LLMLineListMSFApp")
 
     if (!nzchar(path)) {

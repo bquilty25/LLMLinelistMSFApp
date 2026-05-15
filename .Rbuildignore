@@ -4,4 +4,5 @@
 ^AGENTS\.md$
 ^data$
 ^LLMLineList\.Rproj$
+^\.Renviron\.example$
 ^scripts$
