@@ -40,3 +40,57 @@ test_that("compare_linelists reports unmatched extracted cases", {
     expect_equal(result$case_detection$false_positives, 1)
     expect_equal(result$case_detection$false_negatives, 0)
 })
+
+test_that("compare_linelists treats empty prompt arrays as missing values", {
+    llm <- data.frame(
+        case_id = "ABC001",
+        name = "Jane Doe",
+        sex = "female",
+        age = 30,
+        age_unit = "years",
+        province = "nord-kivu",
+        health_zone = "butembo",
+        health_area = "katsya",
+        residence_village = "mususa",
+        profession = "nurse",
+        onset_date = "01/01/2026",
+        outcome_date = "02/01/2026",
+        outcome = "deceased",
+        classification = "confirmed",
+        potential_infector = "[]",
+        infection_route = "household contact",
+        most_probable_infector = NA_character_,
+        contacts = "[]",
+        secondary_cases = "[]",
+        stringsAsFactors = FALSE
+    )
+
+    ground_truth <- data.frame(
+        case_id = "ABC001",
+        name = "Doe Jane",
+        sex = "female",
+        age = 30,
+        age_unit = "years",
+        province = "nord-kivu",
+        health_zone = "butembo",
+        health_area = "katsya",
+        residence_village = "mususa",
+        profession = "nurse",
+        onset_date = "01/01/2026",
+        outcome_date = "02/01/2026",
+        outcome = "deceased",
+        classification = "confirmed",
+        potential_infector = "",
+        infection_route = "household contact",
+        most_probable_infector = NA_character_,
+        contacts = "",
+        secondary_cases = "",
+        stringsAsFactors = FALSE
+    )
+
+    result <- compare_linelists(llm, ground_truth)
+
+    expect_equal(result$structure$n_shared, 19)
+    expect_equal(result$overall_metrics$f1_score, 1)
+    expect_true(all(result$column_metrics$f1_score == 1))
+})

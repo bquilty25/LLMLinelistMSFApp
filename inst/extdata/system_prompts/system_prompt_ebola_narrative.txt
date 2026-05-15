@@ -27,6 +27,8 @@ EXTRACTION INSTRUCTIONS:
    - profession: Occupation/role (lowercase)
 
 3. GEOGRAPHIC FIELDS (preserve as reported, lowercase)
+   - province: Province as reported
+   - health_zone: Health zone as reported
    - residence_village: Village of residence
    - health_area: Health area/zone as reported
 
@@ -36,7 +38,7 @@ EXTRACTION INSTRUCTIONS:
 5. CLINICAL TIMELINE (format: DD/MM/YYYY)
    - onset_date: Date of symptom onset
    - outcome_date: Date of death, recovery, or last known status update
-   - outcome: "died", "recovered", or "under treatment" (lowercase)
+   - outcome: "deceased", "recovered", or "under treatment" (lowercase)
 
 6. TRANSMISSION CHAIN EXTRACTION (CRITICAL)
 
@@ -72,14 +74,11 @@ EXTRACTION INSTRUCTIONS:
       EXAMPLE: For case SYN005 who infected SYN006 and SYN007:
       SYN005's secondary_cases = ["SYN006", "SYN007"]
 
-7. INFECTION ROUTE CLASSIFICATION
-   - "nosocomial" — healthcare facility transmission
-   - "funeral" — funeral or body-handling exposure
-   - "household" — household caregiving or family contact
-   - "community" — community exposure without specific identified source
-   - "transport" — transmission during patient transport
-   - "school" — school or educational setting contact
-   - "unknown" — unknown route
+7. INFECTION ROUTE EXTRACTION
+   - Preserve the most specific exposure phrase reported in the narrative, in lowercase
+   - Do not collapse routes to a smaller vocabulary if the narrative is more specific
+   - Examples include: "community market exposure", "household contact", "church gathering", "funeral exposure", "transport during burial", "clinical setting"
+   - Use "unknown" only when no route is described
 
 8. OUTPUT FORMAT:
 
@@ -93,15 +92,17 @@ Provide structured JSON output wrapped in XML tags:
     "sex": "male",
     "age": 42,
     "age_unit": "years",
+      "province": "nord-kivu",
+      "health_zone": "butembo",
     "residence_village": "kalo",
     "health_area": "kalo-rive",
     "classification": "confirmed",
     "profession": "farmer",
     "onset_date": "05/03/2026",
     "outcome_date": "12/03/2026",
-    "outcome": "died",
+      "outcome": "deceased",
     "potential_infector": [],
-    "infection_route": "community",
+      "infection_route": "community market exposure",
     "most_probable_infector": null,
     "contacts": ["SYN002", "SYN003", "SYN004"],
     "secondary_cases": ["SYN002", "SYN003", "SYN004"]
@@ -116,15 +117,17 @@ FIELD DEFINITIONS:
 - sex: "male" or "female" (lowercase)
 - age: Numeric age
 - age_unit: "years" or "months"
+- province: Province as reported, lowercase
+- health_zone: Health zone as reported, lowercase
 - residence_village: Village name (lowercase)
 - health_area: Health area or zone as reported (lowercase)
 - classification: "confirmed", "probable", or "suspected" (lowercase)
 - profession: Occupation (lowercase)
 - onset_date: Symptom onset date (DD/MM/YYYY)
 - outcome_date: Death, recovery, or last known status date (DD/MM/YYYY)
-- outcome: "died", "recovered", or "under treatment" (lowercase); null if unknown
+- outcome: "deceased", "recovered", or "under treatment" (lowercase); null if unknown
 - potential_infector: Array of case_ids who may have INFECTED THIS PERSON (upstream)
-- infection_route: Mode of transmission
+- infection_route: Most specific reported exposure phrase, lowercase; preserve narrative wording where possible
 - most_probable_infector: Single case_id of most likely source; null if unknown
 - contacts: Array of ALL case_ids this person had documented contact with (bidirectional)
 - secondary_cases: Array of case_ids that THIS PERSON INFECTED (downstream)

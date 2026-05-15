@@ -4,7 +4,9 @@
 # =============================================================================
 
 llmlinelist_is_null_like <- function(x) {
-    is.na(x) || x == "" || tolower(as.character(x)) == "null"
+    normalized <- trimws(tolower(as.character(x)))
+
+    is.na(x) || normalized %in% c("", "null", "[]")
 }
 
 llmlinelist_normalize_name <- function(x, min_chars = 2) {

@@ -10,27 +10,11 @@
 #'
 #' @return A logical scalar indicating whether the values match.
 fuzzy_match <- function(val1, val2, column_name = "") {
-    if (is.na(val1) && is.na(val2)) {
+    if (llmlinelist_is_null_like(val1) && llmlinelist_is_null_like(val2)) {
         return(TRUE)
     }
 
-    if (is.na(val1) || is.na(val2)) {
-        return(FALSE)
-    }
-
-    if (val1 == "null" && val2 == "null") {
-        return(TRUE)
-    }
-
-    if (val1 == "null" || val2 == "null") {
-        return(FALSE)
-    }
-
-    if (val1 == "" && val2 == "") {
-        return(TRUE)
-    }
-
-    if (val1 == "" || val2 == "") {
+    if (llmlinelist_is_null_like(val1) || llmlinelist_is_null_like(val2)) {
         return(FALSE)
     }
 

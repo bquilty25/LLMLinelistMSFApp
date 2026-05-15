@@ -312,14 +312,17 @@ compare_column_values <- function(llm_data, gt_data, column, match_results = NUL
     llm_vals <- llm_data[[column]]
     gt_vals <- gt_data[[column]]
 
-    completeness_llm <- sum(!is.na(llm_vals) & llm_vals != "" & llm_vals != "null") / length(llm_vals)
-    completeness_gt <- sum(!is.na(gt_vals) & gt_vals != "" & gt_vals != "null") / length(gt_vals)
+    llm_has_value_all <- !vapply(llm_vals, llmlinelist_is_null_like, logical(1))
+    gt_has_value_all <- !vapply(gt_vals, llmlinelist_is_null_like, logical(1))
+
+    completeness_llm <- sum(llm_has_value_all) / length(llm_vals)
+    completeness_gt <- sum(gt_has_value_all) / length(gt_vals)
 
     error_breakdown <- NULL
 
     if (is.null(match_results)) {
-        llm_unique <- unique(llm_vals[!is.na(llm_vals) & llm_vals != "" & llm_vals != "null"])
-        gt_unique <- unique(gt_vals[!is.na(gt_vals) & gt_vals != "" & gt_vals != "null"])
+        llm_unique <- unique(llm_vals[llm_has_value_all])
+        gt_unique <- unique(gt_vals[gt_has_value_all])
 
         if (length(llm_unique) == 0 && length(gt_unique) == 0) {
             precision <- 1.0
@@ -351,13 +354,17 @@ compare_column_values <- function(llm_data, gt_data, column, match_results = NUL
                 dplyr::mutate(
                     llm_val = llm_vals[llm_idx],
                     gt_val = gt_vals[gt_idx],
-                    llm_has_value = !is.na(llm_val) & llm_val != "" & llm_val != "null",
-                    gt_has_value = !is.na(gt_val) & gt_val != "" & gt_val != "null",
+                    llm_has_value = !vapply(llm_val, llmlinelist_is_null_like, logical(1)),
+                    gt_has_value = !vapply(gt_val, llmlinelist_is_null_like, logical(1)),
                     both_have_values = llm_has_value & gt_has_value
                 ) |>
                 dplyr::rowwise() |>
                 dplyr::mutate(
-                    values_match = dplyr::if_else(both_have_values, fuzzy_match(llm_val, gt_val, column), FALSE),
+                    values_match = dplyr::if_else(
+                        !llm_has_value & !gt_has_value,
+                        TRUE,
+                        dplyr::if_else(both_have_values, fuzzy_match(llm_val, gt_val, column), FALSE)
+                    ),
                     error_type = dplyr::case_when(
                         values_match ~ "None",
                         !llm_has_value & gt_has_value ~ "False Negative (Missing Value)",
@@ -368,7 +375,7 @@ compare_column_values <- function(llm_data, gt_data, column, match_results = NUL
                 ) |>
                 dplyr::ungroup()
 
-            true_positives <- sum(comparison_df$values_match)
+            true_positives <- sum(comparison_df$values_match & comparison_df$both_have_values)
             llm_non_null_matched <- sum(comparison_df$llm_has_value)
             gt_non_null_matched <- sum(comparison_df$gt_has_value)
             both_have_values <- sum(comparison_df$both_have_values)
@@ -378,10 +385,17 @@ compare_column_values <- function(llm_data, gt_data, column, match_results = NUL
                 dplyr::count(error_type) |>
                 dplyr::mutate(column = column)
 
-            precision <- if (llm_non_null_matched > 0) true_positives / llm_non_null_matched else 0
-            recall <- if (gt_non_null_matched > 0) true_positives / gt_non_null_matched else 0
-            f1_score <- ifelse(precision + recall == 0, 0, 2 * precision * recall / (precision + recall))
-            accuracy <- if (both_have_values > 0) true_positives / both_have_values else 0
+            if (llm_non_null_matched == 0 && gt_non_null_matched == 0) {
+                precision <- 1.0
+                recall <- 1.0
+                f1_score <- 1.0
+                accuracy <- 1.0
+            } else {
+                precision <- if (llm_non_null_matched > 0) true_positives / llm_non_null_matched else 0
+                recall <- if (gt_non_null_matched > 0) true_positives / gt_non_null_matched else 0
+                f1_score <- ifelse(precision + recall == 0, 0, 2 * precision * recall / (precision + recall))
+                accuracy <- if (both_have_values > 0) true_positives / both_have_values else 0
+            }
         }
     }
 

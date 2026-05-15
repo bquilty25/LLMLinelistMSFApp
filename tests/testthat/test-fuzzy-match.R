@@ -1,6 +1,7 @@
 test_that("fuzzy_match handles list-style case ids", {
     expect_true(fuzzy_match("ABC001, DEF002", "DEF002, ABC001", "contacts"))
     expect_false(fuzzy_match("ABC001", "XYZ999", "contacts"))
+    expect_true(fuzzy_match("[]", "", "contacts"))
 })
 
 test_that("fuzzy_match handles order-insensitive names", {
