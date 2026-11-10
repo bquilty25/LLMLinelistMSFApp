@@ -346,15 +346,248 @@ llm_call_tidy <- function(prompt,
     response
 }
 
-#' Parse Structured Data From LLM Response
+# ---------------------------------------------------------------------------
+# Anthropic Citations API helpers (Claude-only)
+# ---------------------------------------------------------------------------
+
+# Split a prompt template into the system-instructions section only, stripping
+# the "Here is the outbreak narrative..." block so the document can be passed
+# as a separate document block in the Citations API request.
+llmlinelist_system_instructions_only <- function(template) {
+    stringr::str_replace(template, "(?s)\\n\\nHere is the outbreak narrative to analyse:.*$", "")
+}
+
+# Make a Claude API call with Citations enabled.  The document is passed as a
+# first-class document block so Claude returns character-indexed citations back
+# to the source document for every claim it makes in its response.
+#
+# Returns a list with:
+#   text      - the reconstructed full response text (all content blocks joined)
+#   block_map - list of {text, start, end, citations} one entry per text block
+#   usage     - prompt/completion/total token counts
+llmlinelist_call_claude_with_citations <- function(system_instructions,
+                                                   document_content,
+                                                   model,
+                                                   temperature,
+                                                   max_tokens) {
+    llmlinelist_require_env("CLAUDE_API_KEY")
+
+    request_body <- list(
+        model = model,
+        max_tokens = as.integer(max_tokens),
+        temperature = temperature,
+        system = system_instructions,
+        messages = list(
+            list(
+                role = "user",
+                content = list(
+                    list(
+                        type = "document",
+                        source = list(
+                            type       = "text",
+                            media_type = "text/plain",
+                            data       = document_content
+                        ),
+                        title = "Outbreak narrative",
+                        citations = list(enabled = TRUE)
+                    ),
+                    list(
+                        type = "text",
+                        text = "Extract the structured linelist from the above outbreak narrative."
+                    )
+                )
+            )
+        )
+    )
+
+    resp <- httr2::request("https://api.anthropic.com/v1/messages") |>
+        httr2::req_headers(
+            `Content-Type` = "application/json",
+            `x-api-key` = Sys.getenv("CLAUDE_API_KEY"),
+            `anthropic-version` = "2023-06-01"
+        ) |>
+        httr2::req_body_json(request_body) |>
+        httr2::req_retry(max_tries = 4) |>
+        httr2::req_perform()
+
+    if (httr2::resp_status(resp) >= 300) {
+        rlang::abort(sprintf(
+            "Claude Citations API call failed: HTTP %s",
+            httr2::resp_status(resp)
+        ))
+    }
+
+    parsed_resp <- httr2::resp_body_json(resp)
+    blocks <- parsed_resp$content
+
+    # Reconstruct the full response text, tracking per-block citation metadata.
+    accumulated <- character(0)
+    block_map <- list()
+
+    for (blk in blocks) {
+        if (identical(blk$type, "text")) {
+            blk_text <- blk$text %||% ""
+            start_pos <- sum(nchar(accumulated))
+            accumulated <- c(accumulated, blk_text)
+            end_pos <- sum(nchar(accumulated))
+
+            raw_cits <- blk$citations
+            parsed_cits <- if (!is.null(raw_cits) && length(raw_cits) > 0) {
+                lapply(raw_cits, function(cit) {
+                    list(
+                        cited_text       = cit$cited_text %||% "",
+                        start_char_index = cit$start_char_index,
+                        end_char_index   = cit$end_char_index
+                    )
+                })
+            } else {
+                list()
+            }
+
+            block_map <- c(block_map, list(list(
+                text      = blk_text,
+                start     = start_pos,
+                end       = end_pos,
+                citations = parsed_cits
+            )))
+        }
+    }
+
+    list(
+        text = paste(accumulated, collapse = ""),
+        block_map = block_map,
+        usage = list(
+            prompt_tokens     = parsed_resp$usage$input_tokens,
+            completion_tokens = parsed_resp$usage$output_tokens,
+            total_tokens      = parsed_resp$usage$input_tokens + parsed_resp$usage$output_tokens
+        )
+    )
+}
+
+# Collect all citations from block_map entries whose text contains the given
+# case_id or (lowercased) name.  Returns NULL when no citations are found.
+llmlinelist_citations_for_case <- function(case_id, name_value, block_map) {
+    if (is.null(block_map) || length(block_map) == 0) {
+        return(NULL)
+    }
+
+    name_lower <- if (!is.null(name_value) && !is.na(name_value) && nzchar(trimws(name_value))) {
+        tolower(name_value)
+    } else {
+        NULL
+    }
+    id_upper <- if (!is.null(case_id) && !is.na(case_id) && nzchar(trimws(case_id))) {
+        toupper(case_id)
+    } else {
+        NULL
+    }
+
+    relevant <- Filter(function(blk) {
+        txt <- blk$text %||% ""
+        (!is.null(id_upper) && grepl(id_upper, txt, fixed = TRUE)) ||
+            (!is.null(name_lower) && grepl(name_lower, tolower(txt), fixed = TRUE))
+    }, block_map)
+
+    all_cits <- unlist(lapply(relevant, `[[`, "citations"), recursive = FALSE)
+    if (length(all_cits) == 0) NULL else all_cits
+}
+
+# Text-search fallback: locate where a case appears in the source document.
+# Returns a single-element citation list (same structure as Citations API output)
+# or NULL if the case cannot be found.
+llmlinelist_find_case_source_text <- function(case_id, name_value, document_content) {
+    if (is.null(document_content) || !nzchar(document_content %||% "")) {
+        return(NULL)
+    }
+
+    # Normalise to a non-empty scalar string or NA — handles NULL, character(0), NA.
+    safe_str <- function(x) {
+        if (is.null(x) || length(x) != 1L) {
+            return(NA_character_)
+        }
+        s <- trimws(as.character(x))
+        if (is.na(s) || !nzchar(s)) NA_character_ else s
+    }
+    cid_s <- safe_str(case_id)
+    name_s <- safe_str(name_value)
+
+    doc_len <- nchar(document_content)
+    pos <- NA_integer_
+
+    # Try case_id first (exact match, upper-cased).
+    if (!is.na(cid_s)) {
+        m <- regexpr(cid_s, document_content, fixed = TRUE)[[1L]]
+        if (m > 0L) pos <- m
+    }
+
+    # Fall back to name (case-insensitive via tolower).
+    if (is.na(pos) && !is.na(name_s)) {
+        m <- regexpr(tolower(name_s), tolower(document_content), fixed = TRUE)[[1L]]
+        if (m > 0L) pos <- m
+    }
+
+    if (is.na(pos)) {
+        return(NULL)
+    }
+
+    # Walk backwards to find the start of the enclosing paragraph.
+    window_before <- substr(document_content, max(1L, pos - 2000L), pos - 1L)
+    last_break <- regexpr(".*(
+
+|
+>)", window_before, perl = TRUE)
+
+    start_offset <- if (last_break > 0L && attr(last_break, "match.length") > 0L) {
+        max(1L, pos - 2000L) + attr(last_break, "match.length") - 1L
+    } else {
+        max(1L, pos - 200L)
+    }
+    end_offset <- min(doc_len, pos + 2000L)
+
+    # cited_text is the tight excerpt centred on the match.
+    cited_text <- substr(document_content, pos, min(doc_len, pos + 400L))
+
+    list(list(
+        cited_text       = cited_text,
+        start_char_index = start_offset - 1L, # 0-indexed
+        end_char_index   = end_offset
+    ))
+}
+
+# Apply text-search fallback to cases that have no citations yet.
+# Works for all providers; supplements Citations API results for Claude.
+llmlinelist_fill_missing_citations <- function(linelist, document_content) {
+    if (is.null(linelist) || nrow(linelist) == 0L) {
+        return(linelist)
+    }
+
+    has_col <- "citations" %in% names(linelist)
+    base <- if (has_col) linelist$citations else vector("list", nrow(linelist))
+
+    linelist$citations <- purrr::imap(base, function(cits, i) {
+        if (!is.null(cits) && length(cits) > 0L) {
+            return(cits)
+        }
+        cid <- if ("case_id" %in% names(linelist)) linelist$case_id[[i]] else NA_character_
+        nm <- if ("name" %in% names(linelist)) linelist$name[[i]] else NA_character_
+        llmlinelist_find_case_source_text(cid, nm, document_content)
+    })
+
+    linelist
+}
+
+# ---------------------------------------------------------------------------
 #'
 #' Extract a line list from tagged, fenced, or raw JSON in the response.
 #'
 #' @param response Raw LLM response text.
+#' @param block_map Optional list of citation block metadata from
+#'   `llmlinelist_call_claude_with_citations()`.  When provided a `citations`
+#'   list-column is added to the returned linelist.
 #'
 #' @return A list with `linelist` and `raw_response`.
 #' @export
-extract_structured_data <- function(response) {
+extract_structured_data <- function(response, block_map = NULL) {
     try_parse_json <- function(text) {
         if (is.null(text) || !nzchar(stringr::str_trim(text))) {
             return(NULL)
@@ -443,6 +676,17 @@ extract_structured_data <- function(response) {
         linelist <- normalize_list_column(linelist, "secondary_cases")
         linelist <- normalize_list_column(linelist, "potential_infector")
         linelist <- normalize_list_column(linelist, "most_probable_infector")
+
+        # Attach per-case Citations API metadata when available.
+        if (!is.null(block_map)) {
+            linelist$citations <- purrr::map2(
+                if ("case_id" %in% names(linelist)) linelist$case_id else rep(NA_character_, nrow(linelist)),
+                if ("name" %in% names(linelist)) linelist$name else rep(NA_character_, nrow(linelist)),
+                function(cid, nm) {
+                    llmlinelist_citations_for_case(cid, nm, block_map)
+                }
+            )
+        }
     }
 
     list(linelist = linelist, raw_response = response)
@@ -478,6 +722,7 @@ process_document <- function(document_content, content_type = "text", max_tokens
 
     prompt_template <- readr::read_file(system_prompt_path)
     prompt_template <- llmlinelist_append_examples(prompt_template, few_shot_examples)
+
     full_prompt <- llmlinelist_prepare_prompt(prompt_template, document_content)
 
     llm_response <- llm_call_tidy(
@@ -492,11 +737,29 @@ process_document <- function(document_content, content_type = "text", max_tokens
     )
 
     structured_result <- extract_structured_data(llm_response)
+
     if (is.null(structured_result$linelist) || nrow(structured_result$linelist) == 0) {
-        return(list(linelist = tibble::tibble(), contacts = tibble::tibble(), raw_response = llm_response))
+        return(list(
+            linelist = tibble::tibble(),
+            contacts = tibble::tibble(),
+            raw_response = llm_response,
+            document_content = document_content
+        ))
     }
 
-    list(linelist = structured_result$linelist, contacts = tibble::tibble(), raw_response = llm_response)
+    # Fill in source citations for every case using text search, so the app can
+    # highlight the relevant document passage in the tooltip on hover.
+    filled_linelist <- llmlinelist_fill_missing_citations(
+        structured_result$linelist,
+        document_content
+    )
+
+    list(
+        linelist         = filled_linelist,
+        contacts         = tibble::tibble(),
+        raw_response     = llm_response,
+        document_content = document_content
+    )
 }
 
 # Deprecated compatibility wrapper retained for transition.

@@ -38,6 +38,10 @@ provider_defaults <- vapply(provider_model_catalog, `[[`, character(1), 1)
 app_max_response_tokens <- 32768
 app_temperature <- 0.1
 
+# Cache path — persists the last extraction across sessions.
+.cache_dir <- tools::R_user_dir("LLMLineListMSFApp", "cache")
+.cache_file <- file.path(.cache_dir, "last_extraction.qs")
+
 example_text <- if (file.exists(default_demo_narrative_path)) {
   readr::read_file(default_demo_narrative_path)
 } else {
@@ -384,6 +388,7 @@ run_shiny_extraction <- function(input_mode,
   }
 
   relationships <- build_relationship_table(linelist)
+  source_index <- build_source_index(extraction_result$document_content)
   processing_time <- as.numeric(difftime(Sys.time(), started_at, units = "secs"))
   prompt_text <- readr::read_file(system_prompt_path)
 
@@ -416,6 +421,8 @@ run_shiny_extraction <- function(input_mode,
     linelist = linelist,
     relationships = relationships,
     raw_response = extraction_result$raw_response,
+    document_content = extraction_result$document_content,
+    source_index = source_index,
     metadata = metadata,
     prompt_text = prompt_text,
     prompt_path = system_prompt_path,
@@ -423,8 +430,288 @@ run_shiny_extraction <- function(input_mode,
   )
 }
 
+# ---------------------------------------------------------------------------
+# Per-cell source citation helpers
+# ---------------------------------------------------------------------------
+
+# Build a local index of case records and all case-ID mentions they contain.
+# This keeps provenance deterministic without requiring another model call.
+build_source_index <- function(document_content) {
+  empty_index <- list(
+    records = tibble::tibble(case_id = character(), start = integer(), end = integer()),
+    mentions = tibble::tibble(
+      record_start = integer(), record_case_id = character(), case_id = character(),
+      start = integer(), end = integer()
+    )
+  )
+
+  if (is.null(document_content) || length(document_content) != 1L ||
+    is.na(document_content) || !nzchar(document_content)) {
+    return(empty_index)
+  }
+
+  entry_pattern <- "(?m)^\\s*-\\s*(?:Secondary:\\s*)?(SYN[[:alnum:]_-]+)\\b"
+  starts <- gregexpr(entry_pattern, document_content, perl = TRUE)[[1L]]
+  if (length(starts) == 1L && starts[[1L]] < 0L) {
+    return(empty_index)
+  }
+
+  header_matches <- regmatches(document_content, list(starts))[[1L]]
+  header_ids <- toupper(sub(".*?(SYN[[:alnum:]_-]+).*", "\\1", header_matches, perl = TRUE))
+  records <- tibble::tibble(
+    case_id = header_ids,
+    start = as.integer(starts),
+    end = c(as.integer(starts[-1L] - 1L), nchar(document_content))
+  )
+
+  mentions <- purrr::map_dfr(seq_len(nrow(records)), function(record_index) {
+    record <- records[record_index, ]
+    record_text <- substr(document_content, record$start, record$end)
+    positions <- gregexpr("SYN[[:alnum:]_-]+", record_text, perl = TRUE)[[1L]]
+    mention_lengths <- attr(positions, "match.length")
+    if (length(positions) == 1L && positions[[1L]] < 0L) {
+      return(empty_index$mentions)
+    }
+    tibble::tibble(
+      record_start = record$start,
+      record_case_id = record$case_id,
+      case_id = toupper(regmatches(record_text, list(positions))[[1L]]),
+      start = record$start + positions - 1L,
+      end = record$start + positions + mention_lengths - 2L
+    )
+  })
+
+  list(records = records, mentions = mentions)
+}
+
+# Try multiple date format variants so DD/MM/YYYY can be found in narrative prose.
+.date_search_patterns <- function(date_str) {
+  if (is.null(date_str) || length(date_str) != 1L || is.na(date_str) || !nzchar(date_str)) {
+    return(character(0))
+  }
+  if (!grepl("^\\d{2}/\\d{2}/\\d{4}$", date_str)) {
+    return(date_str)
+  }
+  p <- strsplit(date_str, "/")[[1L]]
+  d <- as.integer(p[1])
+  m <- as.integer(p[2])
+  y <- as.integer(p[3])
+  mn <- c(
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  )[m]
+  c(
+    date_str,
+    sprintf("%d %s %d", d, mn, y),
+    sprintf("%d %s %d", d, tolower(mn), y),
+    sprintf("%d %s", d, mn)
+  )
+}
+
+# Search `text` for `value`, trying date variants when the field is a date.
+# Returns list(pos, len) on success, NULL on failure.
+.search_in_text <- function(value, text, field_name) {
+  if (is.null(value) || length(value) != 1L || is.na(value) || !nzchar(value)) {
+    return(NULL)
+  }
+  if (is.null(text) || length(text) != 1L || is.na(text) || !nzchar(text)) {
+    return(NULL)
+  }
+
+  # Date fields: try multiple date formats with case-insensitive fixed search.
+  if (field_name %in% c("onset_date", "outcome_date")) {
+    for (pat in .date_search_patterns(value)) {
+      if (is.na(pat) || !nzchar(pat)) next
+      raw_m <- regexpr(tolower(pat), tolower(text), fixed = TRUE)
+      m <- raw_m[[1L]]
+      ml <- attr(raw_m, "match.length")
+      if (m > 0L && !is.na(ml) && ml > 0L) {
+        return(list(pos = m, len = ml))
+      }
+    }
+    return(NULL)
+  }
+
+  # All other fields: word-boundary regex so "male" doesn't match inside "female".
+  esc <- function(s) gsub("([.\\\\+*?\\[\\]\\^${}|()])", "\\\\\\1", s, perl = TRUE)
+  try_wb <- function(pat) {
+    if (!nzchar(pat %||% "")) {
+      return(NULL)
+    }
+    raw_m <- regexpr(paste0("\\b", esc(pat), "\\b"), text, ignore.case = TRUE, perl = TRUE)
+    m <- raw_m[[1L]]
+    ml <- attr(raw_m, "match.length")
+    if (m > 0L && !is.na(ml) && ml > 0L) list(pos = m, len = ml) else NULL
+  }
+
+  hit <- try_wb(value)
+  if (!is.null(hit)) {
+    return(hit)
+  }
+
+  # Fallback: try longest constituent word for multi-word values not found verbatim.
+  words <- strsplit(trimws(value), "\\s+")[[1L]]
+  words <- words[nzchar(words) & nchar(words) > 2L]
+  if (length(words) > 1L) {
+    for (w in words[order(nchar(words), decreasing = TRUE)]) {
+      hit <- try_wb(w)
+      if (!is.null(hit)) {
+        return(hit)
+      }
+    }
+  }
+
+  NULL
+}
+
+# Return the absolute document range that supports one linelist cell.
+build_cell_source_match <- function(field_name, field_value, case_id, name_val,
+                                    doc_content, source_index = NULL, citation_spans = NULL) {
+  if (is.null(doc_content) || length(doc_content) != 1L ||
+    is.na(doc_content) || !nzchar(doc_content)) {
+    return(NULL)
+  }
+
+  safe_str <- function(x) {
+    if (is.null(x) || length(x) != 1L) {
+      return(NA_character_)
+    }
+    s <- trimws(as.character(x))
+    if (is.na(s) || !nzchar(s)) NA_character_ else s
+  }
+  fv_raw <- safe_str(field_value)
+  fv <- if (!is.na(fv_raw) && !fv_raw %in% c("NA", "NULL", "null")) fv_raw else NA_character_
+  cid_up <- {
+    s <- safe_str(case_id)
+    if (is.na(s)) NA_character_ else toupper(s)
+  }
+  nm_s <- safe_str(name_val)
+
+  doc_len <- nchar(doc_content)
+
+  make_match <- function(hit, window_start) {
+    list(
+      start = window_start + hit$pos - 1L,
+      end = window_start + hit$pos + hit$len - 2L
+    )
+  }
+
+  find_matches <- function(value, window, window_start) {
+    relationship_fields <- c(
+      "contacts", "secondary_cases", "potential_infector", "most_probable_infector"
+    )
+    values_to_find <- if (field_name %in% relationship_fields) {
+      trimws(strsplit(value, "[,;|]")[[1L]])
+    } else {
+      value
+    }
+    values_to_find <- values_to_find[nzchar(values_to_find)]
+
+    matches <- lapply(values_to_find, function(value_to_find) {
+      hit <- tryCatch(.search_in_text(value_to_find, window, field_name), error = function(e) NULL)
+      if (is.null(hit)) NULL else make_match(hit, window_start)
+    })
+    matches <- Filter(Negate(is.null), matches)
+    if (length(matches) == 0L) NULL else list(matches = matches)
+  }
+
+  # Phase 1: use citation spans as the search window when available.
+  if (!is.null(citation_spans) && length(citation_spans) > 0L) {
+    for (span in citation_spans) {
+      s <- tryCatch(as.integer(span$start_char_index) + 1L, error = function(e) NA_integer_)
+      e <- tryCatch(as.integer(span$end_char_index), error = function(e) NA_integer_)
+      if (length(s) != 1L || length(e) != 1L || is.na(s) || is.na(e) ||
+        s < 1L || e > doc_len || s >= e) {
+        next
+      }
+      window <- substr(doc_content, s, e)
+      if (!is.na(fv)) {
+        matches <- find_matches(fv, window, s)
+        if (!is.null(matches)) {
+          return(matches)
+        }
+      } else if (!is.na(cid_up)) {
+        hit <- tryCatch(.search_in_text(cid_up, window, "case_id"), error = function(e) NULL)
+        if (!is.null(hit)) {
+          return(list(matches = list(make_match(hit, s))))
+        }
+      }
+    }
+  }
+
+  # Phase 2: anchor-based ±300 / 3000-char window.
+  anchor <- NA_integer_
+  if (!is.na(cid_up)) {
+    m <- regexpr(cid_up, doc_content, fixed = TRUE)[[1L]]
+    if (m > 0L) anchor <- m
+  }
+  if (is.na(anchor) && !is.na(nm_s)) {
+    m <- regexpr(tolower(nm_s), tolower(doc_content), fixed = TRUE)[[1L]]
+    if (m > 0L) anchor <- m
+  }
+
+  record <- if (!is.null(source_index) && !is.null(source_index$records) && !is.na(cid_up)) {
+    dplyr::filter(source_index$records, .data$case_id == cid_up)
+  } else {
+    tibble::tibble()
+  }
+  w_start <- if (nrow(record) > 0L) record$start[[1L]] else 1L
+  w_end <- if (nrow(record) > 0L) record$end[[1L]] else doc_len
+  window <- substr(doc_content, w_start, w_end)
+
+  relationship_fields <- c(
+    "contacts", "secondary_cases", "potential_infector", "most_probable_infector"
+  )
+  if (!is.na(fv) && field_name %in% relationship_fields &&
+    !is.null(source_index) && !is.null(source_index$mentions) && !is.na(cid_up)) {
+    referenced_ids <- toupper(trimws(strsplit(fv, "[,;|]")[[1L]]))
+    indexed_matches <- source_index$mentions |>
+      dplyr::filter(
+        .data$record_start == w_start,
+        .data$case_id %in% referenced_ids
+      ) |>
+      dplyr::arrange(.data$case_id, .data$start) |>
+      dplyr::distinct(.data$case_id, .keep_all = TRUE) |>
+      dplyr::transmute(start = .data$start, end = .data$end)
+
+    if (nrow(indexed_matches) == length(referenced_ids)) {
+      return(list(matches = unname(split(indexed_matches, seq_len(nrow(indexed_matches))))))
+    }
+
+    return(NULL)
+  }
+
+  if (!is.na(fv)) {
+    matches <- find_matches(fv, window, w_start)
+    if (!is.null(matches)) {
+      return(matches)
+    }
+  }
+
+  if (is.na(anchor) || is.na(cid_up)) {
+    return(NULL)
+  }
+  list(matches = list(list(start = anchor, end = anchor + nchar(cid_up) - 1L)))
+}
+
+# ---------------------------------------------------------------------------
+
 ui <- fluidPage(
   useShinyjs(),
+  tags$script(HTML("
+    Shiny.addCustomMessageHandler('scroll-source-highlight', function(message) {
+      window.setTimeout(function() {
+        var container = document.getElementById('source-narrative');
+        var highlight = document.getElementById('source-highlight');
+        if (container && highlight) {
+          var containerBounds = container.getBoundingClientRect();
+          var highlightBounds = highlight.getBoundingClientRect();
+          container.scrollTop += highlightBounds.top - containerBounds.top -
+            (container.clientHeight / 2) + (highlightBounds.height / 2);
+        }
+      }, 50);
+    });
+  ")),
   theme = shinythemes::shinytheme("flatly"),
   tags$head(
     tags$style(HTML(
@@ -522,6 +809,26 @@ ui <- fluidPage(
         white-space: pre-wrap;
         word-break: break-word;
       }
+      #source-narrative {
+        height: 620px;
+        overflow-y: auto;
+        padding: 18px;
+        border: 1px solid #d9e4ff;
+        background: #fbfdff;
+        color: #2c3e50;
+        line-height: 1.7;
+        white-space: pre-wrap;
+      }
+      #source-narrative mark {
+        background: #ffe066;
+        padding: 1px 2px;
+        font-weight: 700;
+      }
+      #linelist_table td { cursor: pointer; }
+      #record_table td { cursor: pointer; }
+      .linelist-workspace > [class*='col-'] {
+        margin-bottom: 16px;
+      }
       "
     ))
   ),
@@ -596,13 +903,13 @@ ui <- fluidPage(
             "MLX (local)" = "mlx",
             "Ollama (local)" = "ollama"
           ),
-          selected = "azure"
+          selected = "claude"
         ),
         selectInput(
           "model",
           "Model",
-          choices = provider_model_catalog[["azure"]],
-          selected = unname(provider_defaults[["azure"]])
+          choices = provider_model_catalog[["claude"]],
+          selected = unname(provider_defaults[["claude"]])
         )
       ),
       div(
@@ -672,7 +979,35 @@ ui <- fluidPage(
           tabPanel(
             "Linelist",
             br(),
-            DTOutput("linelist_table") %>% withSpinner(type = 8, color = "#1f6feb")
+            radioButtons(
+              "linelist_view_mode",
+              "View",
+              choices = c("Full linelist" = "full", "Per record" = "record"),
+              selected = "full",
+              inline = TRUE
+            ),
+            fluidRow(
+              class = "linelist-workspace",
+              column(
+                6,
+                h4("Source narrative"),
+                htmlOutput("source_narrative")
+              ),
+              column(
+                6,
+                conditionalPanel(
+                  condition = "input.linelist_view_mode === 'full'",
+                  h4("Extracted linelist"),
+                  DTOutput("linelist_table") %>% withSpinner(type = 8, color = "#1f6feb")
+                ),
+                conditionalPanel(
+                  condition = "input.linelist_view_mode === 'record'",
+                  h4("Record review"),
+                  uiOutput("record_selector"),
+                  DTOutput("record_table") %>% withSpinner(type = 8, color = "#1f6feb")
+                )
+              )
+            )
           ),
           tabPanel(
             "Relationships",
@@ -719,7 +1054,7 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  active_default_model <- reactiveVal(unname(provider_defaults[["azure"]]))
+  active_default_model <- reactiveVal(unname(provider_defaults[["claude"]]))
 
   observeEvent(input$provider,
     {
@@ -737,6 +1072,26 @@ server <- function(input, output, session) {
   )
 
   results <- reactiveVal(NULL)
+  selected_source_cell <- reactiveVal(NULL)
+
+  # Reload the last extraction from cache so results are visible on startup.
+  local({
+    if (requireNamespace("qs", quietly = TRUE) && file.exists(.cache_file)) {
+      cached <- tryCatch(qs::qread(.cache_file), error = function(e) NULL)
+      if (!is.null(cached) && is.list(cached) &&
+        "linelist" %in% names(cached) &&
+        is.data.frame(cached$linelist) &&
+        nrow(cached$linelist) > 0L) {
+        results(cached)
+        showNotification(
+          glue("Loaded cached extraction: {nrow(cached$linelist)} cases"),
+          type = "message",
+          duration = 4
+        )
+        updateTabsetPanel(session, "results_tabs", selected = "Overview")
+      }
+    }
+  })
 
   observeEvent(input$process_btn, {
     shinyjs::disable("process_btn")
@@ -762,7 +1117,16 @@ server <- function(input, output, session) {
 
           incProgress(0.8, detail = "Building outputs")
           results(extraction_result)
+          selected_source_cell(NULL)
 
+          # Persist to cache for next session.
+          tryCatch(
+            {
+              dir.create(.cache_dir, showWarnings = FALSE, recursive = TRUE)
+              qs::qsave(extraction_result, .cache_file)
+            },
+            error = function(e) NULL
+          )
           showNotification(
             glue(
               "Extraction complete: {nrow(extraction_result$linelist)} cases, {nrow(extraction_result$relationships)} relationships"
@@ -834,19 +1198,184 @@ server <- function(input, output, session) {
     )
   })
 
+  observeEvent(input$linelist_table_cell_clicked, {
+    selected <- input$linelist_table_cell_clicked
+    if (is.null(selected$row) || is.null(selected$col) ||
+      length(selected$row) != 1L || length(selected$col) != 1L ||
+      is.na(selected$row) || is.na(selected$col)) {
+      selected_source_cell(NULL)
+    } else {
+      selected$col <- as.integer(selected$col) + 1L
+      selected_source_cell(selected)
+    }
+  })
+
+  output$record_selector <- renderUI({
+    req(results())
+    linelist <- results()$linelist
+    if (!"case_id" %in% names(linelist)) {
+      return(div("No case identifier is available."))
+    }
+
+    case_ids <- as.character(linelist$case_id)
+    case_labels <- case_ids
+    if ("name" %in% names(linelist)) {
+      record_names <- as.character(linelist$name)
+      has_name <- !is.na(record_names) & nzchar(record_names)
+      case_labels[has_name] <- paste(case_ids[has_name], record_names[has_name], sep = " - ")
+    }
+
+    selectInput(
+      "record_case_id",
+      "Record",
+      choices = stats::setNames(case_ids, case_labels),
+      selected = input$record_case_id %||% case_ids[[1]]
+    )
+  })
+
+  observeEvent(input$record_case_id,
+    {
+      selected_source_cell(NULL)
+    },
+    ignoreInit = TRUE
+  )
+
+  observeEvent(input$record_table_cell_clicked, {
+    req(results(), input$record_case_id)
+    selected <- input$record_table_cell_clicked
+    if (is.null(selected$row) || length(selected$row) != 1L || is.na(selected$row)) {
+      selected_source_cell(NULL)
+      return()
+    }
+
+    linelist <- results()$linelist
+    display_data <- linelist |> dplyr::select(-dplyr::any_of("citations"))
+    row_index <- match(input$record_case_id, as.character(linelist$case_id))
+    record_fields <- names(display_data)
+    field_index <- suppressWarnings(as.integer(selected$row))
+
+    if (is.na(row_index) || is.na(field_index) || field_index < 1L || field_index > length(record_fields)) {
+      selected_source_cell(NULL)
+      return()
+    }
+
+    selected_source_cell(list(row = row_index, col = field_index))
+  })
+
+  output$source_narrative <- renderUI({
+    req(results())
+    result <- results()
+    doc_content <- result$document_content %||% ""
+
+    if (is.null(doc_content) || length(doc_content) != 1L || is.na(doc_content) || !nzchar(doc_content)) {
+      return(div(id = "source-narrative", "The source narrative is unavailable for this extraction."))
+    }
+
+    selected <- selected_source_cell()
+    if (is.null(selected)) {
+      return(div(id = "source-narrative", "Select a linelist cell to highlight its supporting text."))
+    }
+
+    linelist <- result$linelist
+    display_data <- linelist |> dplyr::select(-dplyr::any_of("citations"))
+    source_index <- result$source_index %||% build_source_index(doc_content)
+    row_index <- suppressWarnings(as.integer(selected$row))
+    col_index <- suppressWarnings(as.integer(selected$col))
+
+    if (is.na(row_index) || is.na(col_index) || row_index < 1L || col_index < 1L ||
+      row_index > nrow(linelist) || col_index > ncol(display_data)) {
+      return(div(id = "source-narrative", "No source match is available for this cell."))
+    }
+
+    field_name <- names(display_data)[[col_index]]
+    field_value <- as.character(display_data[[field_name]][[row_index]])
+    case_id <- if ("case_id" %in% names(linelist)) linelist$case_id[[row_index]] else NA_character_
+    name_value <- if ("name" %in% names(linelist)) linelist$name[[row_index]] else NA_character_
+    citation_spans <- if ("citations" %in% names(linelist)) linelist$citations[[row_index]] else NULL
+    source_match <- build_cell_source_match(
+      field_name, field_value, case_id, name_value, doc_content,
+      source_index = source_index,
+      citation_spans = citation_spans
+    )
+
+    matches <- source_match$matches
+    valid_match <- function(match) {
+      !is.null(match) && length(match$start) == 1L && length(match$end) == 1L &&
+        !is.na(match$start) && !is.na(match$end) && match$start >= 1L &&
+        match$end >= match$start && match$end <= nchar(doc_content)
+    }
+    matches <- Filter(valid_match, matches)
+
+    if (length(matches) == 0L) {
+      return(div(id = "source-narrative", "No source match is available for this cell."))
+    }
+
+    matches <- matches[order(vapply(matches, `[[`, integer(1), "start"))]
+    source_html <- ""
+    position <- 1L
+    for (match_index in seq_along(matches)) {
+      match <- matches[[match_index]]
+      if (match$start < position) next
+      source_html <- paste0(
+        source_html,
+        htmltools::htmlEscape(substr(doc_content, position, match$start - 1L)),
+        "<mark", if (match_index == 1L) " id='source-highlight'" else "", ">",
+        htmltools::htmlEscape(substr(doc_content, match$start, match$end)),
+        "</mark>"
+      )
+      position <- match$end + 1L
+    }
+    source_html <- paste0(source_html, htmltools::htmlEscape(substr(doc_content, position, nchar(doc_content))))
+    session$sendCustomMessage("scroll-source-highlight", list())
+
+    div(
+      id = "source-narrative",
+      HTML(source_html)
+    )
+  })
+
   output$linelist_table <- renderDT({
     req(results())
+    linelist <- results()$linelist
+    display_data <- linelist |> dplyr::select(-dplyr::any_of("citations"))
 
     datatable(
-      results()$linelist,
+      display_data,
       rownames = FALSE,
+      selection = list(mode = "single", target = "cell"),
       filter = "top",
       options = list(
-        scrollX = TRUE,
+        scrollX    = TRUE,
         pageLength = 10,
-        dom = "Bfrtip",
-        buttons = c("copy", "csv", "excel")
+        dom        = "Bfrtip",
+        buttons    = c("copy", "csv", "excel")
       )
+    )
+  })
+
+  output$record_table <- renderDT({
+    req(results(), input$record_case_id)
+    linelist <- results()$linelist
+    display_data <- linelist |> dplyr::select(-dplyr::any_of("citations"))
+    row_index <- match(input$record_case_id, as.character(linelist$case_id))
+    req(!is.na(row_index))
+
+    record_data <- tibble(
+      Field = names(display_data),
+      Value = vapply(display_data, function(column) {
+        value <- column[[row_index]]
+        if (is.null(value) || length(value) == 0L || is.na(value[[1]])) {
+          return("")
+        }
+        paste(as.character(unlist(value, use.names = FALSE)), collapse = ", ")
+      }, character(1))
+    )
+
+    datatable(
+      record_data,
+      rownames = FALSE,
+      selection = list(mode = "single", target = "cell"),
+      options = list(dom = "t", paging = FALSE, ordering = FALSE, scrollY = "500px")
     )
   })
 
@@ -908,7 +1437,10 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       req(results())
-      readr::write_csv(results()$linelist, file)
+      readr::write_csv(
+        results()$linelist |> dplyr::select(-dplyr::any_of("citations")),
+        file
+      )
     }
   )
 

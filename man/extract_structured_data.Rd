@@ -4,10 +4,14 @@
 \alias{extract_structured_data}
 \title{Parse Structured Data From LLM Response}
 \usage{
-extract_structured_data(response)
+extract_structured_data(response, block_map = NULL)
 }
 \arguments{
 \item{response}{Raw LLM response text.}
+
+\item{block_map}{Optional list of citation block metadata from
+\code{llmlinelist_call_claude_with_citations()}.  When provided a \code{citations}
+list-column is added to the returned linelist.}
 }
 \value{
 A list with \code{linelist} and \code{raw_response}.
